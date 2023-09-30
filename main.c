@@ -22,45 +22,16 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-static uint8_t flash_configure(void);
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-	uint8_t FLASH_OB_STATUS;
 
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define FLASH_OB_PASSED 0X00;  
-#define FLASH_OB_FAILED 0X01;
-static uint8_t flash_configure(void)
-{
-	HAL_StatusTypeDef HAL_STATUS = HAL_OK;
-	HAL_STATUS = HAL_FLASH_OB_Unlock();
-	if(HAL_STATUS != HAL_OK)
-	{
-		/*UNLOCK FAILED*/
-		FLASH_OB_STATUS = FLASH_OB_FAILED; 							
-	}
-	else
-	{
-		/*UNLOCK passed*/
-		FLASH_OB_STATUS = FLASH_OB_PASSED;
-		/*check that no operation ongoing in flash memory */
-		while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != 0);
-		/* configure the protection level of flash memory to level 1*/
-		FLASH->OPTCR |= (0xDD << 8);
-		/*Trigger a user option operation*/
-		FLASH->OPTCR |= (1 << 1);
-		/*check that no operation ongoing in flash memory */
-		while(__HAL_FLASH_GET_FLAG(FLASH_FLAG_BSY) != 0);
-		/*Lock The Flash*/
-		FLASH->OPTCR |= (1 << 0);
-	}
-	return FLASH_OB_STATUS;
-}
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -82,7 +53,32 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#define NVIC_ISER0 (*((volatile uint32_t *)(0xE000E100)))
+#define NVIC_ISER1 (*((volatile uint32_t *)(0xE000E104)))
+#define NVIC_ISER2 (*((volatile uint32_t *)(0xE000E108)))
+#define NVIC_ISER3 (*((volatile uint32_t *)(0xE000E10c)))
+#define NVIC_ISER4 (*((volatile uint32_t *)(0xE000E110)))
+#define NVIC_ISER5 (*((volatile uint32_t *)(0xE000E114)))
+#define NVIC_ISER6 (*((volatile uint32_t *)(0xE000E118)))
+#define NVIC_ISER7 (*((volatile uint32_t *)(0xE000E11c)))
 
+#define NVIC_ICER0 (*((volatile uint32_t *)(0xE000E180)))
+#define NVIC_ICER1 (*((volatile uint32_t *)(0xE000E184)))
+#define NVIC_ICER2 (*((volatile uint32_t *)(0xE000E188)))
+#define NVIC_ICER3 (*((volatile uint32_t *)(0xE000E18C)))
+#define NVIC_ICER4 (*((volatile uint32_t *)(0xE000E190)))
+#define NVIC_ICER5 (*((volatile uint32_t *)(0xE000E194)))
+#define NVIC_ICER6 (*((volatile uint32_t *)(0xE000E198)))
+#define NVIC_ICER7 (*((volatile uint32_t *)(0xE000E19C)))
+
+#define NVIC_ISPR0 (*((volatile uint32_t *)(0xE000E200)))
+#define NVIC_ISPR1 (*((volatile uint32_t *)(0xE000E204)))
+#define NVIC_ISPR2 (*((volatile uint32_t *)(0xE000E208)))
+#define NVIC_ISPR3 (*((volatile uint32_t *)(0xE000E20C)))
+#define NVIC_ISPR4 (*((volatile uint32_t *)(0xE000E210)))
+#define NVIC_ISPR5 (*((volatile uint32_t *)(0xE000E214)))
+#define NVIC_ISPR6 (*((volatile uint32_t *)(0xE000E218)))
+#define NVIC_ISPR7 (*((volatile uint32_t *)(0xE000E20C)))
 /* USER CODE END 0 */
 
 /**
@@ -92,7 +88,8 @@ void SystemClock_Config(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	NVIC_ISER1 |= (1 << 7);       // enable the interrupt request line of NVIC
+	NVIC_ISPR1 |= (1 << 7);      // set the pending state (39 % 32)
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -114,7 +111,7 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   /* USER CODE BEGIN 2 */
-	FLASH_OB_STATUS = flash_configure();
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -128,6 +125,14 @@ int main(void)
   /* USER CODE END 3 */
 }
 
+/*execute your ISR */
+void USART3_IRQHandler(void)
+{
+	while(1)
+	{
+
+	}
+}
 /**
   * @brief System Clock Configuration
   * @retval None
@@ -137,23 +142,16 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
-  /** Configure the main internal regulator output voltage
-  */
-  __HAL_RCC_PWR_CLK_ENABLE();
-  __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
-
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 168;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
-  RCC_OscInitStruct.PLL.PLLQ = 4;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -165,10 +163,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
-  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
+  RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
